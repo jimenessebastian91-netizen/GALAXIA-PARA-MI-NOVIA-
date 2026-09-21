@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Galaxia 3D para ti 💗</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02020b;color:#fff;font-family:system-ui,sans-serif}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+#ui{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:18px}
+h1{margin:0;text-align:center;font-size:clamp(25px,5vw,48px);text-shadow:0 0 20px #ff66cf}
+#hint{text-align:center;opacity:.78;margin-top:4px}
+#buttons{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;pointer-events:auto}
+button{border:1px solid #ffffff38;background:#120c2dcc;color:white;padding:11px 15px;border-radius:999px;font-size:14px;cursor:pointer;backdrop-filter:blur(8px)}
+button:hover{background:#35134dcc}
+#msg{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,86vw);display:none;padding:25px;border:1px solid #ff8cdb66;border-radius:24px;background:#080716ee;box-shadow:0 0 60px #ff45bb33;text-align:center;z-index:5}
+#msg.show{display:block}
+#msg h2{margin-top:0;color:#ff9ee0}
+#close{margin-top:15px;position:relative;z-index:10}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+ <div><h1>🌌 Nuestra galaxia 💗</h1><div id="hint">Arrastra para girarla · pellizca/desliza para acercarte · toca planetas y estrellas</div></div>
+ <div id="buttons">
+  <button id="auto">⟳ Giro automático</button>
+  <button id="love">💞 100 TE AMO</button>
+  <button id="letter">💌 Carta secreta</button>
+  <button id="home">✨ Volver al centro</button>
+ </div>
+</div>
+<div id="msg"><h2 id="mt"></h2><div id="mb"></div><button id="close">Cerrar</button></div>
+<script>
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+let W=0,H=0,D=1, stars=[],planets=[],rx=.35,ry=0,zoom=1,drag=false,lx=0,ly=0,auto=true,last=0;
+const messages=[
+ ["💗 Mi persona favorita","Entre todas las estrellas de este universo, tú tienes tu propia constelación en mi corazón."],
+ ["✨ Gracias por existir","Gracias por cada risa, cada conversación y cada recuerdo bonito que hemos creado."],
+ ["🌙 Un deseo","Ojalá podamos seguir llenando nuestra historia de momentos que algún día recordemos con una sonrisa."],
+ ["💫 Eres especial","No hace falta que seas perfecta. Me encanta que seas tú, con tu forma única de ser."],
+ ["🌹 Para ti","Esta galaxia es pequeña comparada con todo lo que quisiera decirte, pero cada estrella lleva un poquito de cariño."]
+];
+function resize(){D=devicePixelRatio||1;W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;ctx.setTransform(D,0,0,D,0,0)}
+addEventListener('resize',resize);resize();
+
+function seed(){
+ stars=[]; planets=[];
+ for(let i=0;i<720;i++){
+  const a=Math.random()*Math.PI*2, r=Math.pow(Math.random(),.62)*520;
+  const arm=(i%5)*Math.PI*2/5;
+  const twist=r*.009;
+  const x=Math.cos(a+arm+twist)*r;
+  const z=Math.sin(a+arm+twist)*r;
+  const y=(Math.random()-.5)*(45+120*(r/520));
+  stars.push({x,y,z,s:.5+Math.random()*2.2,o:.25+Math.random()*.75});
+ }
+ planets=[
+  {x:0,y:0,z:0,r:42,t:"💗",m:messages[0]},
+  {x:150,y:-30,z:70,r:13,t:"✨",m:messages[1]},
+  {x:-210,y:55,z:-40,r:16,t:"🌙",m:messages[2]},
+  {x:80,y:90,z:-150,r:12,t:"💫",m:messages[3]},
+  {x:-120,y:-75,z:160,r:14,t:"🌹",m:messages[4]}
+ ];
+}
+seed();
+
+function rot(p){
+ let cy=Math.cos(ry),sy=Math.sin(ry),cx=Math.cos(rx),sx=Math.sin(rx);
+ let x=p.x*cy-p.z*sy, z=p.x*sy+p.z*cy;
+ let y=p.y*cx-z*sx, zz=p.y*sx+z*cx;
+ return {x,y,z:zz};
+}
+function project(p){
+ const q=rot(p), f=620, sc=f/(f+q.z+720)*zoom;
+ return {x:W/2+q.x*sc,y:H/2+q.y*sc,s:sc,z:q.z};
+}
+function draw(t){
+ ctx.clearRect(0,0,W,H);
+ const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.7);
+ g.addColorStop(0,"#130b35");g.addColorStop(.42,"#05051a");g.addColorStop(1,"#010108");
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ if(auto&&!drag) ry+=.00055*(t-last||1)*1.7;
+ last=t;
+ stars.forEach(p=>{
+  const q=project(p);
+  if(q.s<=0)return;
+  ctx.globalAlpha=p.o*Math.min(1,q.s*2);
+  ctx.fillStyle="#fff";
+  ctx.beginPath();ctx.arc(q.x,q.y,Math.max(.35,p.s*q.s),0,Math.PI*2);ctx.fill();
+ });
+ ctx.globalAlpha=1;
+ const ps=planets.map((p,i)=>({p,i,q:project(p)})).sort((a,b)=>a.q.z-b.q.z);
+ ps.forEach(o=>{
+  const q=o.q,p=o.p;
+  const rad=p.r*q.s;
+  const grad=ctx.createRadialGradient(q.x-rad*.35,q.y-rad*.4,rad*.05,q.x,q.y,rad);
+  grad.addColorStop(0,"#fff");grad.addColorStop(.12,"#ffb9ed");grad.addColorStop(.5,"#c53fa8");grad.addColorStop(1,"#32105c");
+  ctx.shadowBlur=o.i===0?35:18;ctx.shadowColor="#ff59ce";
+  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(q.x,q.y,Math.max(3,rad),0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  ctx.font=`${Math.max(13,rad*.85)}px sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(p.t,q.x,q.y);
+ });
+ requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+c.addEventListener("pointerdown",e=>{drag=true;auto=false;lx=e.clientX;ly=e.clientY;c.setPointerCapture(e.pointerId)});
+c.addEventListener("pointermove",e=>{if(!drag)return;ry+=(e.clientX-lx)*.006;rx+=(e.clientY-ly)*.006;rx=Math.max(-1.4,Math.min(1.4,rx));lx=e.clientX;ly=e.clientY});
+c.addEventListener("pointerup",()=>drag=false);
+c.addEventListener("wheel",e=>{e.preventDefault();zoom*=Math.exp(-e.deltaY*.001);zoom=Math.max(.55,Math.min(2.4,zoom))},{passive:false});
+c.addEventListener("click",e=>{
+ const hit=planets.map((p,i)=>({p,i,q:project(p)})).filter(o=>Math.hypot(e.clientX-o.q.x,e.clientY-o.q.y)<Math.max(18,o.p.r*o.q.s*1.5)).sort((a,b)=>a.q.z-b.q.z)[0];
+ if(hit)show(hit.p.m[0],"<p>"+hit.p.m[1]+"</p>");
+});
+function show(t,b){document.getElementById("mt").textContent=t;document.getElementById("mb").innerHTML=b;document.getElementById("msg").classList.add("show")}
+document.getElementById("close").addEventListener("click",(e)=>{e.preventDefault();e.stopPropagation();document.getElementById("msg").classList.remove("show")});
+document.getElementById("msg").addEventListener("click",(e)=>{if(e.target===document.getElementById("msg"))document.getElementById("msg").classList.remove("show")});
+document.addEventListener("keydown",(e)=>{if(e.key==="Escape")document.getElementById("msg").classList.remove("show")});
+document.getElementById("auto").onclick=()=>{auto=!auto;document.getElementById("auto").textContent=auto?"⟳ Giro automático":"⏸ Giro pausado"};
+document.getElementById("home").onclick=()=>{rx=.35;ry=0;zoom=1};
+document.getElementById("love").onclick=()=>show("💞 100 veces para ti",Array.from({length:100},(_,i)=>`<div>${i+1}. TE AMO 💗</div>`).join(""));
+document.getElementById("letter").onclick=()=>show("💌 Carta secreta",`<p>Hice este pequeño universo para ti porque quería regalarte algo que no fuera solamente un mensaje.</p><p>Quería que pudieras entrar, mover las estrellas, descubrir planetas y encontrar pedacitos de lo que siento.</p><p>Gracias por estar en mi vida y por todos los momentos bonitos. Te quiero muchísimo. 🌌💗</p>`);
+</script>
+</body>
+</html>
